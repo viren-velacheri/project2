@@ -87,7 +87,6 @@ glimpse(dataset)
 dataset <- dataset %>% select(-"Rk")
 # removed any rows with NA values
 dataset <- dataset %>% na.omit
-glimpse(dataset)
 ```
 
 ### Cluster Analysis
@@ -96,7 +95,7 @@ glimpse(dataset)
 # your code here
 library(cluster)
 # clustering code here
-cluster_selection <- dataset %>% select(PER, `TS%`, OWS, DWS, OBPM, DBPM, VORP)
+cluster_selection <- dataset %>% select(PER, WS, VORP)
 sil_width1 <- vector()
 for (i in 2:10) {
     kms <- kmeans(cluster_selection, centers = i)  #compute k-means solution for each k
@@ -112,22 +111,26 @@ ts_pam$silinfo$avg.width
 
 library(GGally)
 
-cluster_selection %>% mutate(cluster = as.factor(ts_pam$clustering)) %>% 
-    ggpairs(columns = 1:7, aes(color = cluster))
+cluster_selection <- cluster_selection %>% ungroup %>% mutate(cluster = as.factor(ts_pam$clustering))
+
+ggpairs(cluster_selection, aes(color = cluster))
 
 ```
 
 Discussion of clustering here
-Based on the first graph, the k that gives the best silhouette width is the value 2.The average silhouette width though is only 0.40154, so the structure present is weak and could be artificial. Since this produced this k value produced the largest average silhouette width though, I picked 2 clusters. The reason I chose the 7 numeric variables that I did was because they seemed the most intriguing of the lot and I didn't want to pick more as then the plots would be less interpretable. 
+Based on the first graph, the k that gives the best silhouette width is the value 2.The average silhouette width though is only 0.4551869, so the structure present is weak and could be artificial. Since this produced this k value produced the largest average silhouette width though, I picked 2 clusters. The reason I chose the 3 numeric variables that I did was because they seemed the most intriguing of the lot and I didn't want to pick more as then the plots would be less interpretable. 
 
-As far as clusters go and the overall goodness of fit of the solution, it doesn't seem too bad. There is some solid overlap for some of the variables such as true shooting percentage, PER, OBPM, and DBPM. For the other variables like offensive win shares, defensive win shares, and VORP though the goodness of fit of the cluster solution isn't too good. I also noticed there is some solid correlation between some of the variables such as OBPM and PER (0.925), True shooting percentage and PER (0.766), and VORP and OWS (0.882).
+Based on the clusters, the red cluster has higher WS (win shares) and VORP than the blue cluster. This appears to suggest that the red cluster represents players with higher win shares and VORP, while the blue cluster represents players with lower win shares and VORP. There is some overlap between the clusters, but not too much. The clusters have some overlap on the PER variable. There is also some very strong correlation between the variables VORP and WS (0.883). There is also some moderate correlation between the variables WS and PER (0.575) and VORP and PER (0.560). Overall, there is some good correlation between these respective variables.
     
 ### Dimensionality Reduction with PCA
 
 ```{R}
 # PCA code here
+cluster_selection <- dataset %>% select(PER, WS, VORP)
 pca1 <- princomp(cluster_selection, cor=T)
 summary(pca1)
+scaledability <- data.frame(scale(cluster_selection))
+summary(pca1, loadings = "T")
 corr_matrix <- pca1$scores %>% cor %>% round(10)
 
 matrix_scores <- pca1$scores %>% as.data.frame 
@@ -136,28 +139,19 @@ matrix_scores %>% ggplot(aes(pca1$scores[, 1], pca1$scores[,
 
 library(factoextra)
 fviz_pca_biplot(pca1)
-# eigval <- temp_dataset_pca$sdev^2
-# varprop <- round(eigval/sum(eigval), 2)
-# ggplot() + geom_bar(aes(y=varprop, x=1:7), stat="identity") + xlab("")
-# geom_text(aes(x=1:7, y=varprop, label=round(varprop, 2)), vjust=1, col="white", size=5) + scale_y_continuous(breaks=seq(0, .6, .2), labels = scales::percent) +
-# scale_x_continuous(breaks=1:10)
-# 
-# temp_df <- data.frame(PC1=temp_dataset_pca$scores[, 1],PC2=temp_dataset_pca$scores[, 2])
-# ggplot(temp_df, aes(PC1, PC2)) + geom_point()
-# ggplot() + geom_bar(aes(y=varprop, x=1:7), stat='identity') + xlab("") + 
 
 
 ```
 
 Discussions of PCA here. 
-It appears that non guards are more extreme in terms of the scores on PC1 and PC2, while guards are less extreme and seem more in the middle. 
+I keep the first 2 PCS as they account for over 96% of the variance. PC1 accounts for the highest variability amongst the three variables at 0.78565. It has positive values for all three of the variables, so this means if someone scores high on PC1, they score high on all three of the variables (PER, WS, VORP) and vice versa if someone scores low on PC1, they score low on all three of the variables. PC2 has not nearly as high a variability at 0.175 and has only a positive value for the variable PER. This means if someone scores high on PC2, they score high only on PER and low on the other two variables (WS and VORP). Likewise, if someone scores low on PC2, they score low on PER and high on the other two variables (WS and VORP).  
 
 ###  Linear Classifier
 
 ```{R}
 # linear classifier code here
-logistic_fit <- lm(guardOrNot ~ PER + WS + BPM + VORP + FTr + OWS + DWS + OBPM + DBPM + MP, data = dataset)
-prob_reg <- predict(logistic_fit)
+linear_fit <- lm(guardOrNot ~ PER + WS + BPM + VORP + FTr + OWS + DWS + OBPM + DBPM + MP, data = dataset)
+prob_reg <- predict(linear_fit)
 class_diag(prob_reg, dataset$guardOrNot, positive = 1)
 
 
@@ -196,6 +190,8 @@ summarize_all(diags, mean)
 ```
 
 Discussion here
+The AUC for the linear regression is 0.7119, while for the 10-fold CV it is 0.68567. This appears to imply that the linear regression model is doing a slightly better job of predicting new observations and that the 10-fold CV might be possibly showing slight signs of overfitting since the AUC is just a tad bit smaller.
+
 
 ### Non-Parametric Classifier
 
@@ -239,7 +235,7 @@ summarize_all(diags, mean)
 ```
 
 Discussion
-
+The AUC for KNN was 0.7706, while for the 10-fold CV it had a significantly lower AUC at a value of 0.51547. This means that KNN not only did a better job, but also that there are some major signs of overfitting since the AUC for the 10-fold CV is way smalller.
 
 ### Regression/Numeric Prediction
 
@@ -287,27 +283,29 @@ mean(diags)
 ```
 
 Discussion
+For linear regression the MSE value of 4.152874 was calculated which is very good and implies that the prediction error is not too bad. The 5-fold CV had a bigger MSE at a value of 69.85123 which is definitely bigger, but still not too bad. The prediction error is definitely bigger, but still alright.
 
 ### Python 
 
 ```{R}
 library(reticulate)
 use_python("/usr/bin/python3", required = F)
-hi<-"Hello"
-cat(c(hi,py$hi))
+ball<-"Ball is"
+cat(c(ball,py$life))
 ```
 
 ```{python}
 # python code here
-hi = 'world'
-print(r.hi, hi)
+life = 'Life!'
+print(r.ball, life)
 ```
 
 Discussion
+First, in R, ball is defined as "Ball is". From there, variable life in python is defined as "Life!". They are each defined in different environments, but still can be used in each others respective environment thanks to the reticulate package. In R environment, the python variable life is accessed with the use of the py$ syntax and with the use of the cat command, the "Ball is Life!" line is printed. Meanwhile, in the python environment, the ball variable from r is accessed using the r. syntax and so with the use of the python print statement, the same saying is printed out. This shows how we are able to grab variables from the different environments and use them accordingly.  
 
 ### Concluding Remarks
 
-Include concluding remarks here, if any
+I had a great semester and really learned a lot from this class. I look forward to utilizing all these skills in the future! Thank you!
 
 
 
