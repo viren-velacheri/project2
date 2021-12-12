@@ -54,7 +54,7 @@ Paragraph or two introducing your datasets and variables, why they are interesti
 
 I am a big sports lover and one of my favorite sports is basketball. I played competitively through middle school and was a part of the school team and still play it today as a side hobby. In basketball, there are various metrics/stats used to evaluate players and teams.
 
-The dataset I chose contains some common variables such as the players and number of games played, but instead of some of the basic statistics that are commonly brought up, this dataset contains more advanced metrics such as win shares, box plus/minus, etc. I found this dataset through the usual google search and the reason this specfic dataset stood out to me, as implied above, is because of the different metrics of data they contain. I am a basketball lover and look forward to exploring these dataset! I expect there to be some obvious associations between some of the metrics, but my goal is to more look at by position and see potentially if these advanced metrics tend to favor certain positions over others. There are over 703 observations/rows and for the binary variable regarding guard or not guard, 289 of them are guards, while the rest or 414 are non guards.
+The dataset I chose contains some common variables such as the players and number of games played, but instead of some of the basic statistics that are commonly brought up, this dataset contains more advanced metrics such as win shares, box plus/minus, etc. I found this dataset through the usual google search and the reason this specfic dataset stood out to me, as implied above, is because of the different metrics of data they contain. I am a basketball lover and look forward to exploring this dataset! I expect there to be some obvious associations between some of the metrics, but my goal is to more look at by position and see potentially if these advanced metrics tend to favor certain positions over others. There are over 703 observations/rows and for the binary variable regarding guard or not guard, 289 of them are guards, while the rest or 414 are non guards.
 
 
 ```{R}
@@ -86,6 +86,7 @@ dataset <- dataset %>% mutate(guardOrNot = guardOrNot(Pos))
 dataset <- dataset %>% select(-"Rk")
 # removed any rows with NA values
 dataset <- dataset %>% na.omit
+# gets number of players that are guards
 dataset %>% filter(guardOrNot == 1) %>% count()
 ```
 
@@ -99,7 +100,7 @@ cluster_selection <- dataset %>% select(PER, WS, VORP)
 sil_width1 <- vector()
 for (i in 2:10) {
     kms <- kmeans(cluster_selection, centers = i)  #compute k-means solution for each k
-    sil <- silhouette(kms$cluster, dist(dataset$`TS%`))  #get sil widths
+    sil <- silhouette(kms$cluster, dist(cluster_selection))  #get sil widths
     sil_width1[i] <- mean(sil[, 3])  #take averages (higher is better)
 }
 ggplot() + geom_line(aes(x = 1:10, y = sil_width1)) + 
@@ -117,9 +118,9 @@ ggpairs(cluster_selection, aes(color = cluster))
 
 ```
 
-Based on the first graph, the k that gives the best silhouette width is the value 2.The average silhouette width though is only 0.4551869, so the structure present is weak and could be artificial. Since this produced this k value produced the largest average silhouette width though, I picked 2 clusters. The reason I chose the 3 numeric variables that I did was because they seemed the most intriguing of the lot and I didn't want to pick more as then the plots would be less interpretable. 
+Contrary to the first graph, the k that gives the best silhouette width is the value 2. Even though the graph shows the best value as k=3, the average silhouette width for this k value is like 0.39. The average silhouette width here though is still only 0.4551869, so the structure present is weak and could be artificial. Since this produced this k value produced the largest average silhouette width though, I picked 2 clusters. The reason I chose the 3 numeric variables that I did was because they seemed the most intriguing of the lot and I didn't want to pick more as then the plots would be less interpretable. 
 
-Based on the clusters, the red cluster has higher WS (win shares) and VORP than the blue cluster. This appears to suggest that the red cluster represents players with higher win shares and VORP, while the blue cluster represents players with lower win shares and VORP. There is some overlap between the clusters, but not too much. The clusters have some overlap on the PER variable. There is also some very strong correlation between the variables VORP and WS (0.883). There is also some moderate correlation between the variables WS and PER (0.575) and VORP and PER (0.560). Overall, there is some good correlation between these respective variables.
+Based on the clusters, the red cluster has higher WS (win shares) and VORP than the blue cluster. This appears to suggest that the red cluster represents players with higher win shares and VORP, while the blue cluster represents players with lower win shares and VORP. There is not too much overlap between the clusters for any of the variables. There is also some very strong correlation between the variables VORP and WS (0.883). There is also some moderate correlation between the variables WS and PER (0.575) and VORP and PER (0.560). Overall, there is some good correlation between these respective variables.
     
 ### Dimensionality Reduction with PCA
 
